@@ -10,15 +10,31 @@ A Geist template is a text file without a specific extension requirement althoug
 
 ### Whitespace and line breaks
 
-Text outside tags is copied to the output as is, including line breaks. A `-` inside a delimiter (`{%-`, `-%}`, `{{-`, `-}}`) removes **all** whitespace on that side, including newlines. To print one item per line, keep the line break between the item and the closing tag:
+Geist renders templates with Jinja's `trim_blocks` option: **the first line break after a block tag (`{% ... %}`) is removed**. Other text, including line breaks after `{{ ... }}` expressions and plain text, is copied as is. A `-` inside a delimiter (`{%-`, `-%}`, `{{-`, `-}}`) removes **all** whitespace on that side, including newlines.
+
+So a line that ends with a block tag is joined to the next line:
 
 ```
-{% for _, row in res.iterrows() %}
-{{ row["name"] }}
+Names: {% for r in res.to_dict("records") %}{{ r["name"] }} {% endfor %}
+Total: {{ res | length }}
+```
+
+prints `Names: Ann Bo Total: 2` on one line. Put the block tag on its own line, or end the line with an expression:
+
+```
+Names: {% for r in res.to_dict("records") %}{{ r["name"] }} {% endfor %}{{ "" }}
+Total: {{ res | length }}
+```
+
+To print one item per line, put the loop tags on their own lines and keep the item on a line of its own:
+
+```
+{% for r in res.to_dict("records") %}
+{{ r["name"] }}
 {% endfor %}
 ```
 
-Writing `{{ row["name"] }}{%- endfor %}` instead joins every item onto one line.
+Writing `{{ r["name"] }}{%- endfor %}` instead joins every item onto one line.
 
 ## How to write a Geist template?
 

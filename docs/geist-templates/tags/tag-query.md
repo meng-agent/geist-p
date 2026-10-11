@@ -1,4 +1,4 @@
-The `query` tag performs a query on a dataset. The dataset must already exist: create it first with the [create](tag-create.md) tag.
+The `query` tag performs a query on a dataset. The dataset must already exist: create it first with the [create](tag-create.md) tag. By default the tag body is read as the **path of a query file**; to write the query (SQL, SPARQL or an ASP program) inline in the body, set `isfilepath=False`. Without it, an inline query fails with an error such as `File name too long` or `No such file or directory`.
 
 What the tag returns depends on the data backend:
 
