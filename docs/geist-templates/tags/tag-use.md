@@ -43,7 +43,7 @@ You need to update `TAG_NAME`, `PARAM1`, `PARAM2`, and `CONTENT` based on your u
             }
             ORDER BY ?s ?o
         {% endquery %}
-        {% set all_triples = res | json2df %}
+        {% set all_triples = res %}
 
         {% for _, row in all_triples.iterrows() %}
             {% format_output row["s"], row["o"] %}.

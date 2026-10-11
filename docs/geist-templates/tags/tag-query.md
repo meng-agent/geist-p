@@ -1,4 +1,22 @@
-The `query` tag performs a query on a dataset and returns a Pandas DataFrame. Here are parameters of the `query` tag:
+The `query` tag performs a query on a dataset. The dataset must already exist: create it first with the [create](tag-create.md) tag.
+
+What the tag returns depends on the data backend:
+
+| `datastore` | Query language | Returns |
+|-------------|----------------|---------|
+| `duckdb`    | SQL            | a Pandas DataFrame, one column per selected column |
+| `rdflib`    | SPARQL         | a Pandas DataFrame, one column per SELECT variable (IRIs as `<http://...>`, literals as plain strings) |
+| `clingo`    | ASP rules      | a **list** with one entry per answer set (see below) |
+
+For `clingo`, the rules in the tag body are added to the dataset's facts and solved; every answer set becomes one list entry, in the format chosen by `rformat`:
+
+- `rformat="lp"` (default): a string of facts, e.g. `"grandparent(tom,ann).\n"`
+- `rformat="dict"`: a dict mapping each predicate to a list of argument lists, e.g. `{"grandparent": [["tom", "ann"]]}`
+- `rformat="df"`: a dict mapping each predicate to a DataFrame with columns `arg1`, `arg2`, ...
+
+Arguments are strings; string constants keep their double quotes (`"Tom"` comes back as `'"Tom"'`). Use `predicate` to keep only some predicates. A program with exactly one answer set (e.g. pure Datalog-style rules) returns a list of length 1, so use `res[0]`.
+
+Here are parameters of the `query` tag:
 
 | Name          | Description                                                    |
 |---------------|----------------------------------------------------------------|
@@ -34,3 +52,25 @@ The `query` tag performs a query on a dataset and returns a Pandas DataFrame. He
     }
     ORDER BY ?s ?p ?o
     ```
+
+??? example "Example 3: an ASP query with clingo"
+
+    ```
+    {% create "family", datastore="clingo", inputformat="lp", isfilepath=False %}
+        parent(tom,bob). parent(bob,ann).
+    {% endcreate %}
+    {% query "family", datastore="clingo", rformat="dict", predicate="grandparent", isfilepath=False as res %}
+        grandparent(X,Z) :- parent(X,Y), parent(Y,Z).
+    {% endquery %}
+    {% for args in res[0]["grandparent"] | sort %}
+    {{ args[0] }} is a grandparent of {{ args[1] }}
+    {% endfor %}
+    {% destroy "family", datastore="clingo" %}
+    ```
+
+    Expected output:
+    ```
+    tom is a grandparent of ann
+    ```
+
+    With several answer sets (e.g. choice rules), loop over them: `{% for model in res %} ... {% endfor %}`.

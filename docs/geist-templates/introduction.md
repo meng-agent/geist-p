@@ -8,6 +8,18 @@ A Geist template is a text file without a specific extension requirement althoug
 - `{{ ... }}` for Expressions to print to the template output
 - `{# ... #}` for Comments not included in the template output
 
+### Whitespace and line breaks
+
+Text outside tags is copied to the output as is, including line breaks. A `-` inside a delimiter (`{%-`, `-%}`, `{{-`, `-}}`) removes **all** whitespace on that side, including newlines. To print one item per line, keep the line break between the item and the closing tag:
+
+```
+{% for _, row in res.iterrows() %}
+{{ row["name"] }}
+{% endfor %}
+```
+
+Writing `{{ row["name"] }}{%- endfor %}` instead joins every item onto one line.
+
 ## How to write a Geist template?
 
 A Geist template relies on tags and filters.
