@@ -171,6 +171,28 @@ def connected_components(graph, edges):
             components[idx] = graph_transformed[graph_transformed["start_node"].isin(nodes_component) | graph_transformed["end_node"].isin(nodes_component)].to_dict()
     return components
 
+RDF_FORMATS_BY_EXTENSION = {
+    ".ttl": "turtle", ".nt": "nt", ".n3": "n3", ".rdf": "xml", ".xml": "xml", ".owl": "xml",
+    ".jsonld": "json-ld", ".json": "json-ld", ".trig": "trig", ".nq": "nquads", ".trix": "trix", ".csv": "csv",
+}
+
+def resolve_inputformat(datastore, inputformat, filepath=None):
+    """
+    This function is to choose the input format when a template does not give one.
+    :param datastore: a string. rdflib, duckdb, or clingo
+    :param inputformat: a string or None. The format given in the template, if any
+    :param filepath: a string or None. Path of the input file, used to infer the format from its extension
+    :return inputformat: a string
+    """
+    if inputformat is not None:
+        return inputformat
+    extension = os.path.splitext(filepath.strip())[1].lower() if filepath else ""
+    if datastore == "duckdb":
+        return "json" if extension == ".json" else "csv"
+    if datastore == "clingo":
+        return {".csv": "csv", ".json": "json"}.get(extension, "lp")
+    return RDF_FORMATS_BY_EXTENSION.get(extension, "json-ld")
+
 def get_content(data, isfilepath):
     """
     This function is to retrieve the content of the given file path or the input string itself.

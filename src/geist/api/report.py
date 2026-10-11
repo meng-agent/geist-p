@@ -1,5 +1,5 @@
 import json, re, os
-from geist.tools.utils import set_tags, ensure_dir_exists, get_content, update_outputroot, include_filepaths, generate_template_class, map_df, export_mermaid, _require_dependency
+from geist.tools.utils import set_tags, ensure_dir_exists, get_content, resolve_inputformat, update_outputroot, include_filepaths, generate_template_class, map_df, export_mermaid, _require_dependency
 from geist.tools.filters import head, csv2df, dict2df, json2df, json2dict, df2json, df2htmltable, escape_quotes, process_str_for_html, clingo_list_arguments
 from jinja2 import nodes, Environment, FileSystemLoader
 from jinja2.compiler import CodeGenerator, Frame
@@ -45,8 +45,10 @@ class CustomCodeGenerator(CodeGenerator):
 class CreateExtension(ContainerTag):
     tags = {"create"}
     
-    def render(self, dataset="kb", datastore="rdflib", inputformat="json-ld", colnames=None, infer="none", isfilepath=True, table="df", predicate="isfirstcol", name="base", caller=None):
-        content = get_content(environment.from_string(str(caller())).render(), isfilepath)
+    def render(self, dataset="kb", datastore="rdflib", inputformat=None, colnames=None, infer="none", isfilepath=True, table="df", predicate="isfirstcol", name="base", caller=None):
+        body = environment.from_string(str(caller())).render()
+        content = get_content(body, isfilepath)
+        inputformat = resolve_inputformat(datastore, inputformat, body if isfilepath else None)
         if datastore == "rdflib":
             _require_dependency('rdflib')
             from geist.datastore.rdflib import rdflib_create
@@ -59,7 +61,6 @@ class CreateExtension(ContainerTag):
         elif datastore == "clingo":
             _require_dependency('clingo')
             from geist.datastore.clingo import clingo_create
-            inputformat = "lp" if inputformat == "json-ld" else inputformat
             clingo_create(dataset, content, inputformat, predicate, name)
         else:
             raise ValueError("Invalid datastore. Only rdflib, duckdb, and clingo are supported for now.")
@@ -68,8 +69,10 @@ class CreateExtension(ContainerTag):
 class LoadExtension(ContainerTag):
     tags = {"load"}
     
-    def render(self, dataset="kb", datastore="rdflib", inputformat="json-ld", colnames=None, isfilepath=True, table="df", predicate="isfirstcol", programname="base", caller=None):
-        content = get_content(environment.from_string(str(caller())).render(), isfilepath)
+    def render(self, dataset="kb", datastore="rdflib", inputformat=None, colnames=None, isfilepath=True, table="df", predicate="isfirstcol", programname="base", caller=None):
+        body = environment.from_string(str(caller())).render()
+        content = get_content(body, isfilepath)
+        inputformat = resolve_inputformat(datastore, inputformat, body if isfilepath else None)
         if datastore == "rdflib":
             _require_dependency('rdflib')
             from geist.datastore.rdflib import rdflib_load
@@ -82,7 +85,6 @@ class LoadExtension(ContainerTag):
         elif datastore == "clingo":
             _require_dependency('clingo')
             from geist.datastore.clingo import clingo_load
-            inputformat = "lp" if inputformat == "json-ld" else inputformat
             clingo_load(dataset, content, inputformat, predicate, programname, False)
         else:
             raise ValueError("Invalid datastore. Only rdflib, duckdb, and clingo are supported for now.")
@@ -101,14 +103,21 @@ class QueryExtension(ContainerTag):
             res = query2df(rdf_graph, content)
         elif datastore == "duckdb":
             _require_dependency('duckdb')
-            from geist.datastore.duckdb import load_sql_dataset
-            conn = load_sql_dataset(dataset)
+            import duckdb
+            from geist.datastore.duckdb import load_sql_dataset, DATA_DIR
+            # A query on a dataset that was never created runs on an empty in-memory database,
+            # so SQL that reads files directly (e.g. read_csv_auto('data.csv')) works without a create tag.
+            exists = os.path.isfile(DATA_DIR + dataset + ".duckdb")
+            conn = load_sql_dataset(dataset) if exists else duckdb.connect()
             res = conn.sql(content).df()
             conn.close()
         elif datastore == "clingo":
             _require_dependency('clingo')
-            from geist.datastore.clingo import load_asp_dataset, query2dicts, format_dicts
-            conn = load_asp_dataset(dataset, name="base")
+            from geist.datastore.clingo import load_asp_dataset, add_and_ground_program, query2dicts, format_dicts, DATA_DIR
+            # A query on a dataset that was never created solves the query program on its own,
+            # so facts and rules can be given together in the query body.
+            exists = dataset.startswith(':memory:') or os.path.isfile(DATA_DIR + dataset + ".pkl")
+            conn = load_asp_dataset(dataset, name="base") if exists else add_and_ground_program("", "base")
             dicts = query2dicts(conn, content, programname, predicate)
             res = format_dicts(dicts, rformat)
         else:

@@ -1,4 +1,4 @@
-import click, duckdb, os
+import click, duckdb, os, tempfile
 from geist.tools.filters import csv2df, json2df
 from geist.tools.utils import ensure_dir_exists, update_outputroot
 
@@ -6,9 +6,24 @@ DATA_DIR = ".geistdata/duckdb/"
 
 def create_sql_dataset(data_path, inputfile, inputformat, table):
     conn = duckdb.connect(data_path)
-    df = inputfile2df(inputfile, inputformat)
-    conn.sql(f'CREATE TABLE {table} AS SELECT * FROM df;')
+    create_table(conn, inputfile, inputformat, table)
     return conn
+
+def create_table(conn, inputfile, inputformat, table):
+    """Create a table from CSV or JSON content. CSV is parsed by DuckDB itself so that column types and NULLs are kept."""
+    if inputformat == 'csv':
+        with tempfile.NamedTemporaryFile('w', suffix='.csv', delete=False, encoding='utf-8') as tmp:
+            tmp.write(inputfile)
+        try:
+            conn.sql(f"CREATE TABLE {table} AS SELECT * FROM read_csv_auto('{tmp.name}');")
+        finally:
+            os.remove(tmp.name)
+    else:
+        df = inputfile2df(inputfile, inputformat)
+        conn.sql(f'CREATE TABLE {table} AS SELECT * FROM df;')
+
+def table_exists(conn, table):
+    return conn.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = ?", [table]).fetchone()[0] > 0
 
 def load_sql_dataset(dataset):
     if isinstance(dataset, str):
@@ -56,8 +71,13 @@ def duckdb_create(dataset, inputfile, inputformat, table):
 def duckdb_load(dataset, inputfile, inputformat, table):
     """Import data into a SQL dataset"""    
     conn = load_sql_dataset(dataset)
-    locals()[table+"2add"] = inputfile2df(inputfile, inputformat)
-    conn.sql(f'INSERT INTO {table} SELECT * FROM {table}2add;')
+    if not table_exists(conn, table):
+        # Loading into a new table creates it
+        create_table(conn, inputfile, inputformat, table)
+        return conn
+    staging = table + "2add"
+    create_table(conn, inputfile, inputformat, staging)
+    conn.sql(f'INSERT INTO {table} SELECT * FROM {staging}; DROP TABLE {staging};')
     return conn
 
 def duckdb_query(dataset, inputfile, hasoutput, outputroot, outputfile):
