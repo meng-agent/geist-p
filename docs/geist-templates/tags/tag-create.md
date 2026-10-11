@@ -50,7 +50,7 @@ The `create` tag creates a dataset based on the given string. By default, the gi
     {% destroy "school", datastore="duckdb" %}
     ```
 
-    CSV data is read with Pandas, so an integer column with empty cells becomes a float column (`1.0`) and empty cells become `NaN` rather than SQL `NULL`. Test for missing values with `isnan(col)` instead of `col IS NULL`, and convert ids with `CAST(col AS BIGINT)` only after filtering out `NaN`.
+    CSV data is read with Pandas, so an integer column with empty cells becomes a `DOUBLE` column (ids print as `1.0`). Empty cells are SQL `NULL`, so test them with `col IS NULL`; use `CAST(col AS BIGINT)` where whole numbers are needed.
 
 ??? example "Example 4: load a Turtle file and ASP facts"
 
