@@ -14,7 +14,9 @@ For `clingo`, the rules in the tag body are added to the dataset's facts and sol
 - `rformat="dict"`: a dict mapping each predicate to a list of argument lists, e.g. `{"grandparent": [["tom", "ann"]]}`
 - `rformat="df"`: a dict mapping each predicate to a DataFrame with columns `arg1`, `arg2`, ...
 
-Arguments are strings; string constants keep their double quotes (`"Tom"` comes back as `'"Tom"'`). Use `predicate` to keep only some predicates. A program with exactly one answer set (e.g. pure Datalog-style rules) returns a list of length 1, so use `res[0]`.
+Arguments are returned as strings. In ASP a bare constant (`sam`) and a quoted string (`"sam"`) are different terms: write rules with the same form the facts use (`taken(sam,C)` matches the fact `taken(sam,intro)`, `taken("sam",C)` does not). Quoted strings come back with their quotes (`"tom"` is returned as `'"tom"'`). Use `predicate` to keep only some predicates. A program with exactly one answer set (e.g. pure Datalog-style rules) returns a list of length 1, so use `res[0]`.
+
+To loop over the rows of a DataFrame result, prefer `res.to_dict("records")`, which keeps each column's type. `res.iterrows()` turns every row into a single-type Series, so when all selected columns are numeric, integers come out as floats (`1` prints as `1.0`); add `| int` where needed if you use it.
 
 Here are parameters of the `query` tag:
 
