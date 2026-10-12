@@ -16,6 +16,8 @@ For `clingo`, the rules in the tag body are added to the dataset's facts and sol
 
 Arguments are returned as strings. In ASP a bare constant (`sam`) and a quoted string (`"sam"`) are different terms: write rules with the same form the facts use (`taken(sam,C)` matches the fact `taken(sam,intro)`, `taken("sam",C)` does not). Quoted strings come back with their quotes (`"tom"` is returned as `'"tom"'`). Use `predicate` to keep only some predicates. A program with exactly one answer set (e.g. pure Datalog-style rules) returns a list of length 1, so use `res[0]`.
 
+Geist asks clingo for **all** answer sets. A choice rule over many facts can have a huge number of them, and enumerating them all can take very long, so do not count or loop over answer sets unless the task needs every one. With an optimisation statement (`#minimize`/`#maximize`), only successively better answer sets are returned and the **last** one (`res[-1]`) is optimal. An empty list means the program has no answer set. To check only whether a solution exists, an optimisation statement with a constant weight, such as `ok. #minimize { 1 : ok }.`, makes clingo stop after the first answer set.
+
 To loop over the rows of a DataFrame result, prefer `res.to_dict("records")`, which keeps each column's type. `res.iterrows()` turns every row into a single-type Series, so when all selected columns are numeric, integers come out as floats (`1` prints as `1.0`); add `| int` where needed if you use it.
 
 Here are parameters of the `query` tag:
